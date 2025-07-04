@@ -1,308 +1,248 @@
-/* App Container */
-.app-container {
-    min-height: 100vh;
-    background-color: #f5f5f5;
-}
-
-/* Main Grid Container */
+/* Container Styles */
 .excel-grid-container {
     padding: 20px;
     font-family: Arial, sans-serif;
 }
 
-.excel-grid-title {
+/* File Manager Button */
+.file-manager-button {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 16px;
+    background-color: #6f42c1;
+    color: white;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    z-index: 100;
+}
+
+/* Control Panel */
+.control-panel {
     margin-bottom: 20px;
+}
+
+.control-panel h2 {
+    margin: 0 0 15px;
     color: #333;
 }
 
-/* Controls Section */
-.excel-grid-controls {
-    margin-bottom: 20px;
+.control-buttons {
     display: flex;
-    gap: 10px;
     flex-wrap: wrap;
-    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
 }
 
-.excel-grid-info {
-    padding: 8px;
-    background-color: #f0f0f0;
-    border-radius: 4px;
-}
-
-.excel-grid-info span {
-    font-size: 14px;
-    color: #666;
-}
-
-/* Button Styles */
-.excel-grid-btn {
+.control-buttons button {
     padding: 8px 16px;
     color: white;
     border: none;
     border-radius: 4px;
     cursor: pointer;
     font-size: 14px;
-    transition: background-color 0.2s ease;
 }
 
-.excel-grid-btn:hover {
-    opacity: 0.9;
-}
-
-.excel-grid-btn-success {
+.add-row-btn {
     background-color: #28a745;
 }
 
-.excel-grid-btn-success:hover {
-    background-color: #218838;
+.add-column-btn {
+    background-color: #17a2b8;
 }
 
-.excel-grid-btn-primary {
-    background-color: #007bff;
-}
-
-.excel-grid-btn-primary:hover {
-    background-color: #0056b3;
-}
-
-.excel-grid-btn-danger {
+.delete-row-btn {
     background-color: #dc3545;
 }
 
-.excel-grid-btn-danger:hover {
-    background-color: #c82333;
-}
-
-.excel-grid-btn-warning {
+.delete-col-btn {
     background-color: #fd7e14;
 }
 
-.excel-grid-btn-warning:hover {
-    background-color: #e8680d;
-}
-
-.excel-grid-btn-secondary {
+.clear-all-btn {
     background-color: #6c757d;
 }
 
-.excel-grid-btn-secondary:hover {
-    background-color: #5a6268;
+.undo-btn {
+    background-color: #007bff;
 }
 
-/* Filters Section */
-.excel-grid-filters {
-    margin-bottom: 20px;
-    padding: 15px;
-    background-color: #f8f9fa;
+.redo-btn {
+    background-color: #20c997;
+}
+
+/* Table Styles */
+.excel-table-wrapper {
+    overflow-x: auto;
+    border: 1px solid #ddd;
     border-radius: 4px;
 }
 
-.excel-grid-filters-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: center;
+.excel-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
 }
 
-.excel-grid-filters-label {
-    font-weight: bold;
-    margin-right: 10px;
-}
-
-.excel-grid-filter-group {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.excel-grid-filter-label {
-    font-size: 12px;
-    font-weight: bold;
-    margin-bottom: 4px;
-}
-
-.excel-grid-filter-input {
-    padding: 4px 8px;
+.excel-table thead th {
+    background-color: #f1f1f1;
     border: 1px solid #ccc;
-    border-radius: 3px;
-    font-size: 12px;
-    width: 80px;
-}
-
-.excel-grid-filter-input:focus {
-    outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-}
-
-/* Grid Styles */
-.excel-grid {
-    border: 2px solid #dee2e6;
-    border-radius: 4px;
-    overflow: hidden;
-    font-size: 14px;
-}
-
-/* Header Row */
-.excel-grid-header-row {
-    display: flex;
-    background-color: #e9ecef;
-}
-
-.excel-grid-header-corner {
-    width: 50px;
-    height: 35px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid #dee2e6;
-    font-weight: bold;
-    background-color: #f8f9fa;
-}
-
-.excel-grid-header-cell {
-    min-width: 100px;
-    height: 35px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid #dee2e6;
-    font-weight: bold;
-    cursor: pointer;
-    background-color: #e9ecef;
-    user-select: none;
-    transition: background-color 0.2s ease;
-}
-
-.excel-grid-header-cell:hover {
-    background-color: #d6d9dc;
-}
-
-.excel-grid-header-cell.highlighted {
-    background-color: #cce5ff;
-}
-
-.excel-grid-sort-indicator {
-    margin-left: 4px;
-}
-
-/* Data Rows */
-.excel-grid-row {
-    display: flex;
-}
-
-.excel-grid-row-header {
-    width: 50px;
-    height: 35px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid #dee2e6;
-    font-weight: bold;
-    background-color: #f8f9fa;
-}
-
-.excel-grid-row-header.highlighted {
-    background-color: #cce5ff;
-}
-
-/* Cell Styles */
-.excel-grid-cell-wrapper {
+    text-align: center;
     position: relative;
 }
 
-.excel-grid-cell {
-    min-width: 100px;
-    height: 35px;
-    padding: 6px;
-    border: 1px solid #dee2e6;
+.excel-table thead input {
+    width: 90%;
+    padding: 2px;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.excel-table td,
+.excel-table th {
+    border: 1px solid #ccc;
+    padding: 4px;
+    text-align: left;
+    cursor: cell;
+}
+
+.row-index {
+    background-color: #f9f9f9;
+    font-weight: bold;
+    text-align: center;
+}
+
+.focused-cell {
+    background-color: #e3f2fd;
+}
+
+.edit-cell-input {
+    width: 100%;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    background-color: white;
+}
+
+.cell-content {
+    outline: none;
+}
+
+/* File Manager Modal */
+.file-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
     display: flex;
     align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.file-modal {
     background-color: white;
-    cursor: pointer;
-    outline: none;
-    transition: background-color 0.2s ease, outline 0.2s ease;
+    padding: 30px;
+    border-radius: 8px;
+    min-width: 350px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
-.excel-grid-cell:hover {
-    background-color: #f8f9fa;
+.file-modal h3 {
+    margin: 0 0 20px;
+    color: #333;
 }
 
-.excel-grid-cell.focused {
-    background-color: #fff3cd;
-    outline: 2px solid #ffc107;
-}
-
-.excel-grid-cell-input {
-    min-width: 100px;
-    height: 35px;
-    padding: 6px;
-    border: 2px solid #007bff;
-    font-size: 14px;
-    outline: none;
-    background-color: white;
-}
-
-.excel-grid-cell-input:focus {
-    border-color: #0056b3;
-    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-}
-
-/* Instructions */
-.excel-grid-instructions {
-    margin-top: 20px;
-    padding: 15px;
-    background-color: #f8f9fa;
-    border-radius: 4px;
-}
-
-.excel-grid-instructions p {
-    margin: 0 0 10px 0;
+.file-modal label {
+    display: block;
+    margin-bottom: 8px;
     font-weight: bold;
 }
 
-.excel-grid-instructions ul {
-    margin: 0;
-    padding-left: 20px;
+.file-modal input[type="text"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
     font-size: 14px;
 }
 
-.excel-grid-instructions li {
-    margin-bottom: 5px;
+.file-modal .modal-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-    .excel-grid-container {
-        padding: 10px;
-    }
+.file-modal .modal-buttons button {
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: bold;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
 
-    .excel-grid-controls {
-        flex-direction: column;
-        align-items: stretch;
-    }
+.file-modal .save-btn {
+    background-color: #28a745;
+    color: white;
+}
 
-    .excel-grid-btn {
-        margin-bottom: 5px;
-    }
+.file-modal .import-btn {
+    background-color: #007bff;
+    color: white;
+}
 
-    .excel-grid-filters-container {
-        flex-direction: column;
-        align-items: stretch;
-    }
+.file-modal .refresh-btn {
+    background-color: #ffc107;
+    color: black;
+}
 
-    .excel-grid-filter-group {
-        flex-direction: row;
-        justify-content: space-between;
-        margin-bottom: 10px;
-    }
+.file-modal .cancel-btn {
+    background-color: #6c757d;
+    color: white;
+}
 
-    .excel-grid-filter-input {
-        width: 120px;
-    }
+/* Context Menu */
+.context-menu {
+    position: fixed;
+    background-color: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    min-width: 200px;
+    padding: 4px 0;
+}
 
-    .excel-grid {
-        overflow-x: auto;
-    }
+.context-menu-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 14px;
+    background-color: white;
+    border-radius: 2px;
+}
+
+.context-menu-item:hover {
+    background-color: #f0f0f0;
+}
+
+.context-menu-shortcut {
+    font-size: 12px;
+    color: #666;
+}
+
+.context-menu-divider {
+    height: 1px;
+    background-color: #eee;
+    margin: 4px 0;
 }
