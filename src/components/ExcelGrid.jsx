@@ -327,13 +327,9 @@ const ExcelGrid = ({
   const [clipboard, setClipboard] = useState({ data: null, type: null });
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [selectedRange, setSelectedRange] = useState(null);
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [selectionStart, setSelectionStart] = useState(null);
 
   const gridRef = useRef(null);
   const gridWrapperRef = useRef(null);
-  const cellRefs = useRef({});
   const currentEditValue = useRef("");
 
   const currentRows = data.length;
@@ -400,6 +396,175 @@ const ExcelGrid = ({
     return () => observer.disconnect();
   }, [currentColumns]);
 
+  // Global keyboard event handler
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      // Only handle if not in file manager modal or context menu
+      if (showFileManager || contextMenu.isOpen) return;
+
+      const key = e.key;
+      const ctrlKey = e.ctrlKey || e.metaKey;
+      let newRow = focusedCell.row;
+      let newCol = focusedCell.col;
+
+      // Handle Ctrl+Z (Undo) and Ctrl+Y (Redo)
+      if (ctrlKey && key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+        return;
+      }
+
+      if (ctrlKey && (key === "y" || (key === "z" && e.shiftKey))) {
+        e.preventDefault();
+        redo();
+        return;
+      }
+
+      // Handle Ctrl+C (Copy)
+      if (ctrlKey && key === "c") {
+        e.preventDefault();
+        handleCopy();
+        return;
+      }
+
+      // Handle Ctrl+X (Cut)
+      if (ctrlKey && key === "x") {
+        e.preventDefault();
+        handleCut();
+        return;
+      }
+
+      // Handle Ctrl+V (Paste)
+      if (ctrlKey && key === "v") {
+        e.preventDefault();
+        handlePaste();
+        return;
+      }
+
+      // Handle Delete key
+      if (key === "Delete" || key === "Backspace") {
+        e.preventDefault();
+        if (editingCell) return; // Don't clear if editing
+        const rowId = filteredData[focusedCell.row]?.id;
+        if (rowId) {
+          handleCellChange(rowId, focusedCell.col, "");
+        }
+        return;
+      }
+
+      // Handle Tab key - move to next cell
+      if (key === "Tab") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          // Shift+Tab: Move to previous cell
+          if (newCol > 0) {
+            newCol = newCol - 1;
+          } else {
+            newCol = currentColumns - 1;
+            newRow = newRow > 0 ? newRow - 1 : filteredData.length - 1;
+          }
+        } else {
+          // Tab: Move to next cell
+          if (newCol < currentColumns - 1) {
+            newCol = newCol + 1;
+          } else {
+            newCol = 0;
+            newRow = newRow < filteredData.length - 1 ? newRow + 1 : 0;
+          }
+        }
+        setFocusedCell({ row: newRow, col: newCol });
+        setEditingCell(null);
+        return;
+      }
+
+      // Navigation keys
+      switch (key) {
+        case "ArrowUp":
+          e.preventDefault();
+          newRow = newRow > 0 ? newRow - 1 : filteredData.length - 1;
+          setFocusedCell({ row: newRow, col: newCol });
+          setEditingCell(null);
+          return;
+        case "ArrowDown":
+          e.preventDefault();
+          newRow = newRow < filteredData.length - 1 ? newRow + 1 : 0;
+          setFocusedCell({ row: newRow, col: newCol });
+          setEditingCell(null);
+          return;
+        case "ArrowLeft":
+          e.preventDefault();
+          newCol = newCol > 0 ? newCol - 1 : currentColumns - 1;
+          setFocusedCell({ row: newRow, col: newCol });
+          setEditingCell(null);
+          return;
+        case "ArrowRight":
+          e.preventDefault();
+          newCol = newCol < currentColumns - 1 ? newCol + 1 : 0;
+          setFocusedCell({ row: newRow, col: newCol });
+          setEditingCell(null);
+          return;
+        case "Enter":
+          e.preventDefault();
+          if (editingCell) {
+            setEditingCell(null);
+            // Move down to next row after Enter
+            newRow = newRow < filteredData.length - 1 ? newRow + 1 : 0;
+            setFocusedCell({ row: newRow, col: newCol });
+          } else {
+            setEditingCell({ rowIndex: focusedCell.row, col: focusedCell.col });
+            const currentValue =
+              filteredData[focusedCell.row]?.cells[focusedCell.col] || "";
+            currentEditValue.current = currentValue;
+          }
+          return;
+        case "Escape":
+          e.preventDefault();
+          if (editingCell) {
+            // Restore original value
+            const rowId = filteredData[focusedCell.row]?.id;
+            if (rowId) {
+              handleCellChange(
+                rowId,
+                focusedCell.col,
+                currentEditValue.current
+              );
+            }
+            setEditingCell(null);
+          }
+          return;
+        case "F2":
+          e.preventDefault();
+          setEditingCell({ rowIndex: focusedCell.row, col: focusedCell.col });
+          const currentValue =
+            filteredData[focusedCell.row]?.cells[focusedCell.col] || "";
+          currentEditValue.current = currentValue;
+          return;
+        default:
+          // Start editing if alphanumeric key is pressed
+          if (key.length === 1 && !ctrlKey && !editingCell) {
+            e.preventDefault();
+            setEditingCell({ rowIndex: focusedCell.row, col: focusedCell.col });
+            // Clear cell and start with new character
+            const rowId = filteredData[focusedCell.row]?.id;
+            if (rowId) {
+              handleCellChange(rowId, focusedCell.col, key);
+            }
+          }
+          return;
+      }
+    };
+
+    document.addEventListener("keydown", handleGlobalKeyDown);
+    return () => document.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [
+    focusedCell,
+    editingCell,
+    showFileManager,
+    contextMenu.isOpen,
+    undo,
+    redo,
+  ]);
+
   // Filter data based on active filters
   const filteredData = data.filter((row) => {
     return Object.entries(filters).every(([colIndex, filterValue]) => {
@@ -437,19 +602,8 @@ const ExcelGrid = ({
   });
 
   const handleCellClick = (rowIndex, col) => {
-    if (isSelecting) {
-      // End selection
-      setSelectedRange({
-        start: selectionStart,
-        end: { row: rowIndex, col },
-      });
-      setIsSelecting(false);
-      setSelectionStart(null);
-    } else {
-      setFocusedCell({ row: rowIndex, col });
-      setEditingCell(null);
-      setSelectedRange(null);
-    }
+    setFocusedCell({ row: rowIndex, col });
+    setEditingCell(null);
   };
 
   const handleCellDoubleClick = (rowIndex, col) => {
@@ -470,167 +624,6 @@ const ExcelGrid = ({
     setData(newData);
     onDataChange(newData);
     addToHistory(newData);
-  };
-
-  const handleKeyDown = (e, rowIndex, col) => {
-    const key = e.key;
-    const ctrlKey = e.ctrlKey || e.metaKey;
-    let newRow = rowIndex;
-    let newCol = col;
-
-    // Handle Ctrl+Z (Undo) and Ctrl+Y (Redo)
-    if (ctrlKey && key === "z" && !e.shiftKey) {
-      e.preventDefault();
-      undo();
-      return;
-    }
-
-    if (ctrlKey && (key === "y" || (key === "z" && e.shiftKey))) {
-      e.preventDefault();
-      redo();
-      return;
-    }
-
-    // Handle Ctrl+C (Copy)
-    if (ctrlKey && key === "c") {
-      e.preventDefault();
-      handleCopy();
-      return;
-    }
-
-    // Handle Ctrl+X (Cut)
-    if (ctrlKey && key === "x") {
-      e.preventDefault();
-      handleCut();
-      return;
-    }
-
-    // Handle Ctrl+V (Paste)
-    if (ctrlKey && key === "v") {
-      e.preventDefault();
-      handlePaste();
-      return;
-    }
-
-    // Handle Delete key
-    if (key === "Delete") {
-      e.preventDefault();
-      const rowId = sortedData[rowIndex]?.id;
-      if (rowId) {
-        handleCellChange(rowId, col, "");
-      }
-      return;
-    }
-
-    // Handle Backspace key
-    if (key === "Backspace") {
-      e.preventDefault();
-      const rowId = sortedData[rowIndex]?.id;
-      if (rowId) {
-        handleCellChange(rowId, col, "");
-      }
-      return;
-    }
-
-    // Handle Tab key - move to next cell
-    if (key === "Tab") {
-      e.preventDefault();
-      if (e.shiftKey) {
-        // Shift+Tab: Move to previous cell
-        if (col > 0) {
-          newCol = col - 1;
-        } else {
-          newCol = currentColumns - 1;
-          newRow = rowIndex > 0 ? rowIndex - 1 : sortedData.length - 1;
-        }
-      } else {
-        // Tab: Move to next cell
-        if (col < currentColumns - 1) {
-          newCol = col + 1;
-        } else {
-          newCol = 0;
-          newRow = rowIndex < sortedData.length - 1 ? rowIndex + 1 : 0;
-        }
-      }
-
-      setFocusedCell({ row: newRow, col: newCol });
-      setEditingCell(null);
-
-      // Focus the new cell
-      const cellKey = `${newRow}-${newCol}`;
-      if (cellRefs.current[cellKey]) {
-        cellRefs.current[cellKey].focus();
-      }
-      return;
-    }
-
-    // Navigation keys
-    switch (key) {
-      case "ArrowUp":
-        e.preventDefault();
-        newRow = rowIndex > 0 ? rowIndex - 1 : sortedData.length - 1;
-        break;
-      case "ArrowDown":
-        e.preventDefault();
-        newRow = rowIndex < sortedData.length - 1 ? rowIndex + 1 : 0;
-        break;
-      case "ArrowLeft":
-        e.preventDefault();
-        newCol = col > 0 ? col - 1 : currentColumns - 1;
-        break;
-      case "ArrowRight":
-        e.preventDefault();
-        newCol = col < currentColumns - 1 ? col + 1 : 0;
-        break;
-      case "Enter":
-        e.preventDefault();
-        if (editingCell) {
-          setEditingCell(null);
-          // Move down to next row after Enter
-          newRow = rowIndex < sortedData.length - 1 ? rowIndex + 1 : 0;
-        } else {
-          setEditingCell({ rowIndex, col });
-          return;
-        }
-        break;
-      case "Escape":
-        e.preventDefault();
-        if (editingCell) {
-          // Restore original value
-          const rowId = sortedData[rowIndex]?.id;
-          if (rowId) {
-            handleCellChange(rowId, col, currentEditValue.current);
-          }
-          setEditingCell(null);
-        }
-        return;
-      case "F2":
-        e.preventDefault();
-        setEditingCell({ rowIndex, col });
-        return;
-      default:
-        // Start editing if alphanumeric key is pressed
-        if (key.length === 1 && !ctrlKey && !editingCell) {
-          setEditingCell({ rowIndex, col });
-          // Clear cell and start with new character
-          const rowId = sortedData[rowIndex]?.id;
-          if (rowId) {
-            handleCellChange(rowId, col, key);
-          }
-          return;
-        }
-        return;
-    }
-
-    setFocusedCell({ row: newRow, col: newCol });
-    const cellKey = `${newRow}-${newCol}`;
-    if (cellRefs.current[cellKey]) {
-      cellRefs.current[cellKey].focus();
-    }
-  };
-
-  const handleCellBlur = (rowId, col, value) => {
-    setEditingCell(null);
   };
 
   const handleSort = (colIndex) => {
@@ -919,165 +912,70 @@ const ExcelGrid = ({
             display: "flex",
             flexWrap: "wrap",
             gap: "10px",
-            marginBottom: "10px",
           }}
         >
-          <button
-            onClick={addRow}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#28a745",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
-          >
-            ➕ Add Row
-          </button>
-
-          <button
-            onClick={addColumn}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#17a2b8",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
-          >
-            ➕ Add Column
-          </button>
-
-          <button
-            onClick={() => deleteRow(focusedCell.row)}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#dc3545",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
-          >
+          <button onClick={addRow}>➕ Add Row</button>
+          <button onClick={addColumn}>➕ Add Column</button>
+          <button onClick={() => deleteRow(focusedCell.row)}>
             🗑️ Delete Row
           </button>
-
-          <button
-            onClick={() => deleteColumn(focusedCell.col)}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#fd7e14",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
-          >
+          <button onClick={() => deleteColumn(focusedCell.col)}>
             🗑️ Delete Column
           </button>
-
-          <button
-            onClick={clearAllData}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#6c757d",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
-          >
-            🧹 Clear All
-          </button>
-
-          <button
-            onClick={undo}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#007bff",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
-          >
+          <button onClick={clearAllData}>🧹 Clear All</button>
+          <button onClick={undo} disabled={historyIndex <= 0}>
             ↩️ Undo
           </button>
-
-          <button
-            onClick={redo}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#20c997",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
-          >
+          <button onClick={redo} disabled={historyIndex >= history.length - 1}>
             ↪️ Redo
           </button>
         </div>
       </div>
 
-      {/* Grid Wrapper */}
+      {/* Spreadsheet Grid */}
       <div
         ref={gridWrapperRef}
         style={{
-          overflowX: "auto",
-          border: "1px solid #ddd",
-          borderRadius: "4px",
+          overflow: "auto",
+          border: "1px solid #ccc",
+          maxHeight: "70vh",
+          position: "relative",
         }}
       >
         <table
           ref={gridRef}
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            tableLayout: "fixed",
-          }}
+          style={{ borderCollapse: "collapse", width: "100%" }}
         >
           <thead>
             <tr>
-              <th style={{ width: "60px", backgroundColor: "#f1f1f1" }}></th>
+              <th style={{ width: "60px" }}></th>
               {columnHeaders.map((header, colIndex) => (
                 <th
                   key={colIndex}
-                  style={{
-                    backgroundColor: "#f1f1f1",
-                    border: "1px solid #ccc",
-                    width: `${colWidth}px`,
-                    textAlign: "center",
-                    position: "relative",
-                    cursor: "pointer",
-                  }}
                   onClick={() => handleSort(colIndex)}
+                  style={{
+                    width: `${colWidth}px`,
+                    backgroundColor:
+                      focusedCell.col === colIndex ? "#f8f9fa" : "#f1f1f1",
+                    border: "1px solid #ddd",
+                    padding: "6px",
+                    textAlign: "center",
+                    cursor: "pointer",
+                    position: "sticky",
+                    top: 0,
+                    zIndex: 1,
+                  }}
                 >
                   <div>
                     {header} {getSortIcon(colIndex)}
                   </div>
                   <input
                     type="text"
-                    placeholder="🔍"
                     value={filters[colIndex] || ""}
                     onChange={(e) =>
                       handleFilterChange(colIndex, e.target.value)
                     }
-                    style={{
-                      width: "90%",
-                      padding: "2px",
-                      fontSize: "12px",
-                      marginTop: "4px",
-                    }}
+                    style={{ width: "90%", padding: "2px" }}
                   />
                 </th>
               ))}
@@ -1086,25 +984,27 @@ const ExcelGrid = ({
           <tbody>
             {sortedData.map((row, rowIndex) => (
               <tr key={row.id}>
-                <td
+                <th
                   style={{
-                    backgroundColor: "#f9f9f9",
-                    border: "1px solid #ccc",
+                    backgroundColor:
+                      focusedCell.row === rowIndex ? "#f8f9fa" : "#f1f1f1",
+                    border: "1px solid #ddd",
                     textAlign: "center",
-                    fontWeight: "bold",
+                    position: "sticky",
+                    left: 0,
+                    zIndex: 1,
+                    width: "60px",
                   }}
                 >
                   {rowIndex + 1}
-                </td>
+                </th>
                 {row.cells.map((cell, colIndex) => {
-                  const isEditing =
-                    editingCell &&
-                    editingCell.rowIndex === rowIndex &&
-                    editingCell.col === colIndex;
                   const isFocused =
                     focusedCell.row === rowIndex &&
                     focusedCell.col === colIndex;
-
+                  const isEditing =
+                    editingCell?.rowIndex === rowIndex &&
+                    editingCell?.col === colIndex;
                   return (
                     <td
                       key={colIndex}
@@ -1116,12 +1016,12 @@ const ExcelGrid = ({
                         handleContextMenu(e, rowIndex, colIndex)
                       }
                       style={{
-                        border: "1px solid #ccc",
-                        padding: "4px",
-                        textAlign: "left",
-                        backgroundColor: isFocused ? "#e3f2fd" : "white",
-                        cursor: "cell",
                         width: `${colWidth}px`,
+                        border: "1px solid #ccc",
+                        padding: "8px",
+                        cursor: "pointer",
+                        outline: isFocused ? "2px solid blue" : "none",
+                        backgroundColor: isFocused ? "#e6f7ff" : "white",
                       }}
                     >
                       {isEditing ? (
@@ -1131,36 +1031,19 @@ const ExcelGrid = ({
                           onChange={(e) =>
                             handleCellChange(row.id, colIndex, e.target.value)
                           }
-                          onBlur={(e) =>
-                            handleCellBlur(row.id, colIndex, e.target.value)
-                          }
-                          onKeyDown={(e) =>
-                            handleKeyDown(e, rowIndex, colIndex)
-                          }
+                          onBlur={() => setEditingCell(null)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") setEditingCell(null);
+                          }}
                           style={{
                             width: "100%",
                             border: "none",
+                            background: "#fff8dc",
                             outline: "none",
-                            fontSize: "14px",
-                            backgroundColor: "white",
                           }}
-                          ref={(el) =>
-                            (cellRefs.current[`${rowIndex}-${colIndex}`] = el)
-                          }
                         />
                       ) : (
-                        <div
-                          tabIndex={0}
-                          onKeyDown={(e) =>
-                            handleKeyDown(e, rowIndex, colIndex)
-                          }
-                          ref={(el) =>
-                            (cellRefs.current[`${rowIndex}-${colIndex}`] = el)
-                          }
-                          style={{ outline: "none" }}
-                        >
-                          {cell}
-                        </div>
+                        <span>{cell}</span>
                       )}
                     </td>
                   );
@@ -1171,22 +1054,12 @@ const ExcelGrid = ({
         </table>
       </div>
 
-      {/* File Manager Modal */}
-      <FileManagerModal
-        isOpen={showFileManager}
-        onClose={() => setShowFileManager(false)}
-        onSave={handleSave}
-        onImport={handleImport}
-        onRefresh={handleRefresh}
-      />
-
       {/* Context Menu */}
       <ContextMenu
         isOpen={contextMenu.isOpen}
         position={contextMenu.position}
-        onClose={() =>
-          setContextMenu({ isOpen: false, position: { x: 0, y: 0 } })
-        }
+        onClose={() => setContextMenu({ ...contextMenu, isOpen: false })}
+        focusedCell={focusedCell}
         onInsertRowAbove={handleInsertRowAbove}
         onInsertRowBelow={handleInsertRowBelow}
         onInsertColumnLeft={handleInsertColumnLeft}
@@ -1196,7 +1069,15 @@ const ExcelGrid = ({
         onCopy={handleCopy}
         onCut={handleCut}
         onPaste={handlePaste}
-        focusedCell={focusedCell}
+      />
+
+      {/* File Manager Modal */}
+      <FileManagerModal
+        isOpen={showFileManager}
+        onClose={() => setShowFileManager(false)}
+        onSave={handleSave}
+        onImport={handleImport}
+        onRefresh={handleRefresh}
       />
     </div>
   );
