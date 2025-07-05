@@ -189,7 +189,7 @@ export const insertMultipleColumns = (data, startIndex, count) => {
   });
 };
 
-// FIXED: Add multiple columns functions
+// Add multiple columns functions
 export const addMultipleColumns = (data, count = 5) => {
   return data.map((row) => ({
     ...row,
@@ -279,13 +279,20 @@ export const updateCellValue = (data, rowId, colIndex, value) => {
   });
 };
 
-// UTILITY: Find row index by row ID
+// UTILITY: Find row index by row ID with error handling
 export const findRowIndexById = (data, rowId) => {
-  return data.findIndex((row) => row.id === rowId);
+  if (!data || !Array.isArray(data)) return -1;
+  return data.findIndex((row) => row && row.id === rowId);
 };
 
-// FIXED: Clear cell data function - supports both rowIndex and rowId
+// FIXED: Clear cell data function - simplified and consistent
 export const clearCellData = (data, rowIdentifier, colIndex) => {
+  console.log("Clear cell data called:", {
+    rowIdentifier,
+    colIndex,
+    dataLength: data.length,
+  });
+
   return data.map((row, rIndex) => {
     // Check if rowIdentifier is a number (rowIndex) or string (rowId)
     const isMatch =
@@ -295,31 +302,61 @@ export const clearCellData = (data, rowIdentifier, colIndex) => {
 
     if (isMatch) {
       const newCells = [...row.cells];
-      newCells[colIndex] = "";
+      // Ensure the column index exists
+      if (colIndex >= 0 && colIndex < newCells.length) {
+        console.log(
+          "Clearing cell at row",
+          rIndex,
+          "col",
+          colIndex,
+          "old value:",
+          newCells[colIndex]
+        );
+        newCells[colIndex] = "";
+      }
       return { ...row, cells: newCells };
     }
     return row;
   });
 };
 
-// FIXED: Alternative function specifically for row ID
+// FIXED: Clear cell by ID
 export const clearCellDataById = (data, rowId, colIndex) => {
+  console.log("Clear cell by ID:", { rowId, colIndex });
+
   return data.map((row) => {
     if (row.id === rowId) {
       const newCells = [...row.cells];
-      newCells[colIndex] = "";
+      if (colIndex >= 0 && colIndex < newCells.length) {
+        console.log("Clearing cell by ID, old value:", newCells[colIndex]);
+        newCells[colIndex] = "";
+      }
       return { ...row, cells: newCells };
     }
     return row;
   });
 };
 
-// FIXED: Alternative function specifically for row index
+// FIXED: Clear cell by index
 export const clearCellDataByIndex = (data, rowIndex, colIndex) => {
+  console.log("Clear cell by index:", {
+    rowIndex,
+    colIndex,
+    dataLength: data.length,
+  });
+
+  if (rowIndex < 0 || rowIndex >= data.length) {
+    console.error("Invalid row index:", rowIndex);
+    return data;
+  }
+
   return data.map((row, rIndex) => {
     if (rIndex === rowIndex) {
       const newCells = [...row.cells];
-      newCells[colIndex] = "";
+      if (colIndex >= 0 && colIndex < newCells.length) {
+        console.log("Clearing cell by index, old value:", newCells[colIndex]);
+        newCells[colIndex] = "";
+      }
       return { ...row, cells: newCells };
     }
     return row;
@@ -547,33 +584,65 @@ export const getContextMenuItems = () => [
   { label: "Delete Row", action: "deleteRow", icon: "🗑️" },
   { label: "Delete Column", action: "deleteColumn", icon: "🗑️" },
   { label: "---", action: null },
-  { label: "Clear Cell", action: "clearCell", icon: "🧹" },
 ];
 
 // FIXED: Handle backspace key for erasing cell content
 export const handleBackspaceKey = (data, rowIdentifier, colIndex) => {
+  console.log("Backspace key pressed:", { rowIdentifier, colIndex });
   return clearCellData(data, rowIdentifier, colIndex);
 };
 
-// ENHANCED: Context menu handler that works with both scenarios
+// FIXED: Context menu handler with proper error handling and debugging
 export const handleContextMenuAction = (action, data, focusedCell) => {
+  console.log("=== CONTEXT MENU ACTION ===");
+  console.log("Action:", action);
+  console.log("Focused cell:", focusedCell);
+  console.log("Data length:", data.length);
+  console.log("===========================");
+
+  if (
+    !focusedCell ||
+    typeof focusedCell.row === "undefined" ||
+    typeof focusedCell.col === "undefined"
+  ) {
+    console.error("Invalid focused cell:", focusedCell);
+    return data;
+  }
+
   const { row, col } = focusedCell;
 
   switch (action) {
     case "clearCell":
-      // If row is a number, use it as index; otherwise find index by ID
-      const rowIndex =
-        typeof row === "number" ? row : findRowIndexById(data, row);
-      return clearCellDataByIndex(data, rowIndex, col);
+      console.log("Executing clear cell action...");
+      // Handle both row index and row ID
+      if (typeof row === "number") {
+        console.log("Clearing cell by index:", row, col);
+        const result = clearCellDataByIndex(data, row, col);
+        console.log("Clear cell result:", result);
+        return result;
+      } else {
+        console.log("Clearing cell by ID:", row, col);
+        const result = clearCellDataById(data, row, col);
+        console.log("Clear cell result:", result);
+        return result;
+      }
 
     case "insertRowAbove":
       const rowIdx1 =
         typeof row === "number" ? row : findRowIndexById(data, row);
+      if (rowIdx1 === -1) {
+        console.error("Row not found for insertRowAbove");
+        return data;
+      }
       return insertRowAbove(data, rowIdx1, data[0]?.cells?.length || 0);
 
     case "insertRowBelow":
       const rowIdx2 =
         typeof row === "number" ? row : findRowIndexById(data, row);
+      if (rowIdx2 === -1) {
+        console.error("Row not found for insertRowBelow");
+        return data;
+      }
       return insertRowBelow(data, rowIdx2, data[0]?.cells?.length || 0);
 
     case "insertColumnLeft":
@@ -585,12 +654,56 @@ export const handleContextMenuAction = (action, data, focusedCell) => {
     case "deleteRow":
       const rowIdx3 =
         typeof row === "number" ? row : findRowIndexById(data, row);
+      if (rowIdx3 === -1) {
+        console.error("Row not found for deleteRow");
+        return data;
+      }
       return deleteRow(data, rowIdx3);
 
     case "deleteColumn":
       return deleteColumn(data, col);
 
     default:
+      console.log("Unknown action:", action);
       return data;
   }
+};
+
+// DEBUGGING: Function to log current state
+export const debugClearCell = (data, focusedCell) => {
+  console.log("=== DEBUG CLEAR CELL ===");
+  console.log("Data length:", data.length);
+  console.log("Focused cell:", focusedCell);
+  if (
+    focusedCell &&
+    typeof focusedCell.row === "number" &&
+    focusedCell.row >= 0
+  ) {
+    console.log(
+      "Current cell value:",
+      data[focusedCell.row]?.cells[focusedCell.col]
+    );
+    console.log("Row ID:", data[focusedCell.row]?.id);
+  }
+  console.log("========================");
+};
+
+// TESTING: Simple test function for clear cell
+export const testClearCellFunction = (data, focusedCell) => {
+  console.log("=== TESTING CLEAR CELL ===");
+  debugClearCell(data, focusedCell);
+
+  if (
+    !focusedCell ||
+    typeof focusedCell.row === "undefined" ||
+    typeof focusedCell.col === "undefined"
+  ) {
+    console.error("Invalid focused cell for testing");
+    return data;
+  }
+
+  const result = clearCellData(data, focusedCell.row, focusedCell.col);
+  console.log("Test result:", result);
+  console.log("==========================");
+  return result;
 };

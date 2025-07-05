@@ -653,11 +653,14 @@ const ExcelGrid = ({
     }
     setSortConfig({ key: colIndex, direction });
   };
-
   const handleFilterChange = (colIndex, value) => {
     setFilters((prev) => ({
       ...prev,
-      [colIndex]: value,
+      [colIndex]: {
+        ...(prev[colIndex] || {}),
+        value,
+        type: prev[colIndex]?.type || "contains", // default type
+      },
     }));
   };
 
@@ -812,7 +815,6 @@ const ExcelGrid = ({
           </button>
         </div>
       </div>
-
       {/* Spreadsheet Grid */}
       <div
         ref={gridWrapperRef}
@@ -828,8 +830,17 @@ const ExcelGrid = ({
           style={{ borderCollapse: "collapse", width: "100%" }}
         >
           <thead>
+            {/* Column Headers */}
             <tr>
-              <th style={{ width: "60px" }}></th>
+              <th
+                style={{
+                  width: "60px",
+                  backgroundColor: "#f1f1f1",
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 2,
+                }}
+              ></th>
               {columnHeaders.map((header, colIndex) => (
                 <th
                   key={colIndex}
@@ -844,24 +855,60 @@ const ExcelGrid = ({
                     cursor: "pointer",
                     position: "sticky",
                     top: 0,
+                    zIndex: 2,
+                  }}
+                >
+                  {header} {getSortIcon(colIndex, sortConfig)}
+                </th>
+              ))}
+            </tr>
+
+            {/* Filter Inputs Row */}
+            <tr>
+              <th
+                style={{
+                  width: "60px",
+                  backgroundColor: "#fff",
+                  position: "sticky",
+                  top: 40,
+                  zIndex: 1,
+                }}
+              ></th>
+              {columnHeaders.map((_, colIndex) => (
+                <th
+                  key={`filter-${colIndex}`}
+                  style={{
+                    width: `${colWidth}px`,
+                    backgroundColor: "#fff",
+                    border: "1px solid #ddd",
+                    position: "sticky",
+                    top: 40,
                     zIndex: 1,
                   }}
                 >
-                  <div>
-                    {header} {getSortIcon(colIndex, sortConfig)}
-                  </div>
                   <input
                     type="text"
-                    value={filters[colIndex] || ""}
+                    value={filters[colIndex]?.value || ""}
                     onChange={(e) =>
                       handleFilterChange(colIndex, e.target.value)
                     }
-                    style={{ width: "90%", padding: "2px" }}
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onFocus={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    style={{
+                      width: "90%",
+                      padding: "2px",
+                      fontSize: "12px",
+                      border: "1px solid #ccc",
+                      borderRadius: "2px",
+                    }}
                   />
                 </th>
               ))}
             </tr>
           </thead>
+
           <tbody>
             {sortedData.map((row, rowIndex) => (
               <tr key={row.id}>
@@ -934,7 +981,6 @@ const ExcelGrid = ({
           </tbody>
         </table>
       </div>
-
       {/* Context Menu */}
       <ContextMenu
         isOpen={contextMenu.isOpen}
