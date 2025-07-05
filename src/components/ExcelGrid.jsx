@@ -1,34 +1,36 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-
-// Generate column headers (A, B, C, ..., Z, AA, AB, etc.)
-const generateColumnHeaders = (numCols) => {
-  const headers = [];
-  for (let i = 0; i < numCols; i++) {
-    let header = "",
-      num = i;
-    while (num >= 0) {
-      header = String.fromCharCode(65 + (num % 26)) + header;
-      num = Math.floor(num / 26) - 1;
-    }
-    headers.push(header);
-  }
-  return headers;
-};
+import {
+  generateColumnHeaders,
+  initializeGridData,
+  filterData,
+  sortData,
+  getSortIcon,
+  updateCellValue,
+  insertRowAbove,
+  insertRowBelow,
+  insertColumnLeft,
+  insertColumnRight,
+  addNewRow,
+  addNewColumn,
+  deleteRow,
+  deleteColumn,
+  clearAllData,
+  getNextFocusedCell,
+  saveToFile,
+  importFromFile,
+  addToHistory,
+  calculateColumnWidth,
+  adjustFocusAfterRowDeletion,
+  adjustFocusAfterColumnDeletion,
+  getContextMenuItems,
+} from "./ExcelUtils";
 
 // Context Menu Component
 const ContextMenu = ({
   isOpen,
   position,
   onClose,
-  onInsertRowAbove,
-  onInsertRowBelow,
-  onInsertColumnLeft,
-  onInsertColumnRight,
-  onDeleteRow,
-  onDeleteColumn,
-  onCopy,
-  onPaste,
-  onCut,
+  onMenuAction,
   focusedCell,
 }) => {
   const menuRef = useRef(null);
@@ -51,19 +53,7 @@ const ContextMenu = ({
 
   if (!isOpen) return null;
 
-  const menuItems = [
-    { label: "Insert Row Above", action: onInsertRowAbove, icon: "⬆️" },
-    { label: "Insert Row Below", action: onInsertRowBelow, icon: "⬇️" },
-    { label: "Insert Column Left", action: onInsertColumnLeft, icon: "⬅️" },
-    { label: "Insert Column Right", action: onInsertColumnRight, icon: "➡️" },
-    { label: "---", action: null },
-    { label: "Copy", action: onCopy, icon: "📋", shortcut: "Ctrl+C" },
-    { label: "Cut", action: onCut, icon: "✂️", shortcut: "Ctrl+X" },
-    { label: "Paste", action: onPaste, icon: "📋", shortcut: "Ctrl+V" },
-    { label: "---", action: null },
-    { label: "Delete Row", action: onDeleteRow, icon: "🗑️" },
-    { label: "Delete Column", action: onDeleteColumn, icon: "🗑️" },
-  ];
+  const menuItems = getContextMenuItems();
 
   return (
     <div
@@ -108,7 +98,7 @@ const ContextMenu = ({
             }}
             onClick={() => {
               if (item.action) {
-                item.action();
+                onMenuAction(item.action);
                 onClose();
               }
             }}
@@ -294,26 +284,9 @@ const ExcelGrid = ({
   onDataChange = () => {},
   currentFileName = "default",
 }) => {
-  const [data, setData] = useState(() => {
-    const gridData = [];
-    const actualRows = Math.max(initialRows, initialData.length);
-    const actualColumns = Math.max(
-      initialColumns,
-      Math.max(...initialData.map((row) => row?.length || 0), 0)
-    );
-
-    for (let i = 0; i < actualRows; i++) {
-      gridData[i] = {
-        id: `row_${i}_${Date.now()}_${Math.random()}`,
-        cells: [],
-      };
-      for (let j = 0; j < actualColumns; j++) {
-        gridData[i].cells[j] = initialData[i]?.[j] || "";
-      }
-    }
-    return gridData;
-  });
-
+  const [data, setData] = useState(() =>
+    initializeGridData(initialData, initialRows, initialColumns)
+  );
   const [focusedCell, setFocusedCell] = useState({ row: 0, col: 0 });
   const [editingCell, setEditingCell] = useState(null);
   const [filters, setFilters] = useState({});
@@ -337,12 +310,11 @@ const ExcelGrid = ({
   const columnHeaders = generateColumnHeaders(currentColumns);
 
   // Add to history for undo/redo
-  const addToHistory = useCallback(
+  const addToHistoryHandler = useCallback(
     (newData) => {
-      const newHistory = history.slice(0, historyIndex + 1);
-      newHistory.push(JSON.parse(JSON.stringify(newData)));
-      setHistory(newHistory);
-      setHistoryIndex(newHistory.length - 1);
+      const historyResult = addToHistory(history, historyIndex, newData);
+      setHistory(historyResult.history);
+      setHistoryIndex(historyResult.historyIndex);
     },
     [history, historyIndex]
   );
@@ -380,10 +352,9 @@ const ExcelGrid = ({
     const updateColumnWidth = () => {
       if (gridWrapperRef.current) {
         const containerWidth = gridWrapperRef.current.offsetWidth;
-        const availableWidth = containerWidth - 60; // subtract row index column
-        const newColWidth = Math.max(
-          80,
-          Math.floor(availableWidth / currentColumns)
+        const newColWidth = calculateColumnWidth(
+          containerWidth,
+          currentColumns
         );
         setColWidth(newColWidth);
       }
@@ -396,16 +367,102 @@ const ExcelGrid = ({
     return () => observer.disconnect();
   }, [currentColumns]);
 
+  // Get filtered and sorted data
+  const filteredData = filterData(data, filters);
+  const sortedData = sortData(filteredData, sortConfig);
+
+  // Cell change handler
+  const handleCellChange = (rowId, col, value) => {
+    const newData = updateCellValue(data, rowId, col, value);
+    setData(newData);
+    onDataChange(newData);
+    addToHistoryHandler(newData);
+  };
+
+  // Context menu actions handler
+  const handleContextMenuAction = (action) => {
+    let newData;
+
+    switch (action) {
+      case "insertRowAbove":
+        newData = insertRowAbove(data, focusedCell.row, currentColumns);
+        break;
+      case "insertRowBelow":
+        newData = insertRowBelow(data, focusedCell.row, currentColumns);
+        break;
+      case "insertColumnLeft":
+        newData = insertColumnLeft(data, focusedCell.col);
+        break;
+      case "insertColumnRight":
+        newData = insertColumnRight(data, focusedCell.col);
+        break;
+      case "copy":
+        handleCopy();
+        return;
+      case "cut":
+        handleCut();
+        return;
+      case "paste":
+        handlePaste();
+        return;
+      case "deleteRow":
+        newData = deleteRow(data, focusedCell.row);
+        const adjustedFocusRow = adjustFocusAfterRowDeletion(
+          focusedCell,
+          newData.length
+        );
+        setFocusedCell(adjustedFocusRow);
+        break;
+      case "deleteColumn":
+        newData = deleteColumn(data, focusedCell.col);
+        const adjustedFocusCol = adjustFocusAfterColumnDeletion(
+          focusedCell,
+          newData[0]?.cells?.length || 0
+        );
+        setFocusedCell(adjustedFocusCol);
+        break;
+      default:
+        return;
+    }
+
+    if (newData) {
+      setData(newData);
+      onDataChange(newData);
+      addToHistoryHandler(newData);
+    }
+  };
+
+  // Copy, Cut, Paste handlers
+  const handleCopy = () => {
+    const value = sortedData[focusedCell.row]?.cells[focusedCell.col] || "";
+    setClipboard({ data: value, type: "copy" });
+  };
+
+  const handleCut = () => {
+    const value = sortedData[focusedCell.row]?.cells[focusedCell.col] || "";
+    setClipboard({ data: value, type: "cut" });
+    const rowId = sortedData[focusedCell.row]?.id;
+    if (rowId) {
+      handleCellChange(rowId, focusedCell.col, "");
+    }
+  };
+
+  const handlePaste = () => {
+    if (clipboard.data !== null) {
+      const rowId = sortedData[focusedCell.row]?.id;
+      if (rowId) {
+        handleCellChange(rowId, focusedCell.col, clipboard.data);
+      }
+    }
+  };
+
   // Global keyboard event handler
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
-      // Only handle if not in file manager modal or context menu
       if (showFileManager || contextMenu.isOpen) return;
 
       const key = e.key;
       const ctrlKey = e.ctrlKey || e.metaKey;
-      let newRow = focusedCell.row;
-      let newCol = focusedCell.col;
 
       // Handle Ctrl+Z (Undo) and Ctrl+Y (Redo)
       if (ctrlKey && key === "z" && !e.shiftKey) {
@@ -420,21 +477,19 @@ const ExcelGrid = ({
         return;
       }
 
-      // Handle Ctrl+C (Copy)
+      // Handle Ctrl+C (Copy), Ctrl+X (Cut), Ctrl+V (Paste)
       if (ctrlKey && key === "c") {
         e.preventDefault();
         handleCopy();
         return;
       }
 
-      // Handle Ctrl+X (Cut)
       if (ctrlKey && key === "x") {
         e.preventDefault();
         handleCut();
         return;
       }
 
-      // Handle Ctrl+V (Paste)
       if (ctrlKey && key === "v") {
         e.preventDefault();
         handlePaste();
@@ -444,84 +499,94 @@ const ExcelGrid = ({
       // Handle Delete key
       if (key === "Delete" || key === "Backspace") {
         e.preventDefault();
-        if (editingCell) return; // Don't clear if editing
-        const rowId = filteredData[focusedCell.row]?.id;
+        if (editingCell) return;
+        const rowId = sortedData[focusedCell.row]?.id;
         if (rowId) {
           handleCellChange(rowId, focusedCell.col, "");
         }
         return;
       }
 
-      // Handle Tab key - move to next cell
-      if (key === "Tab") {
-        e.preventDefault();
-        if (e.shiftKey) {
-          // Shift+Tab: Move to previous cell
-          if (newCol > 0) {
-            newCol = newCol - 1;
-          } else {
-            newCol = currentColumns - 1;
-            newRow = newRow > 0 ? newRow - 1 : filteredData.length - 1;
-          }
-        } else {
-          // Tab: Move to next cell
-          if (newCol < currentColumns - 1) {
-            newCol = newCol + 1;
-          } else {
-            newCol = 0;
-            newRow = newRow < filteredData.length - 1 ? newRow + 1 : 0;
-          }
-        }
-        setFocusedCell({ row: newRow, col: newCol });
-        setEditingCell(null);
-        return;
-      }
-
-      // Navigation keys
+      // Handle navigation and editing
+      let newFocusedCell;
       switch (key) {
+        case "Tab":
+          e.preventDefault();
+          newFocusedCell = getNextFocusedCell(
+            focusedCell,
+            e.shiftKey ? "shift-tab" : "tab",
+            sortedData.length,
+            currentColumns
+          );
+          setFocusedCell(newFocusedCell);
+          setEditingCell(null);
+          return;
         case "ArrowUp":
           e.preventDefault();
-          newRow = newRow > 0 ? newRow - 1 : filteredData.length - 1;
-          setFocusedCell({ row: newRow, col: newCol });
+          newFocusedCell = getNextFocusedCell(
+            focusedCell,
+            "up",
+            sortedData.length,
+            currentColumns
+          );
+          setFocusedCell(newFocusedCell);
           setEditingCell(null);
           return;
         case "ArrowDown":
           e.preventDefault();
-          newRow = newRow < filteredData.length - 1 ? newRow + 1 : 0;
-          setFocusedCell({ row: newRow, col: newCol });
+          newFocusedCell = getNextFocusedCell(
+            focusedCell,
+            "down",
+            sortedData.length,
+            currentColumns
+          );
+          setFocusedCell(newFocusedCell);
           setEditingCell(null);
           return;
         case "ArrowLeft":
           e.preventDefault();
-          newCol = newCol > 0 ? newCol - 1 : currentColumns - 1;
-          setFocusedCell({ row: newRow, col: newCol });
+          newFocusedCell = getNextFocusedCell(
+            focusedCell,
+            "left",
+            sortedData.length,
+            currentColumns
+          );
+          setFocusedCell(newFocusedCell);
           setEditingCell(null);
           return;
         case "ArrowRight":
           e.preventDefault();
-          newCol = newCol < currentColumns - 1 ? newCol + 1 : 0;
-          setFocusedCell({ row: newRow, col: newCol });
+          newFocusedCell = getNextFocusedCell(
+            focusedCell,
+            "right",
+            sortedData.length,
+            currentColumns
+          );
+          setFocusedCell(newFocusedCell);
           setEditingCell(null);
           return;
         case "Enter":
           e.preventDefault();
           if (editingCell) {
             setEditingCell(null);
-            // Move down to next row after Enter
-            newRow = newRow < filteredData.length - 1 ? newRow + 1 : 0;
-            setFocusedCell({ row: newRow, col: newCol });
+            newFocusedCell = getNextFocusedCell(
+              focusedCell,
+              "enter",
+              sortedData.length,
+              currentColumns
+            );
+            setFocusedCell(newFocusedCell);
           } else {
             setEditingCell({ rowIndex: focusedCell.row, col: focusedCell.col });
             const currentValue =
-              filteredData[focusedCell.row]?.cells[focusedCell.col] || "";
+              sortedData[focusedCell.row]?.cells[focusedCell.col] || "";
             currentEditValue.current = currentValue;
           }
           return;
         case "Escape":
           e.preventDefault();
           if (editingCell) {
-            // Restore original value
-            const rowId = filteredData[focusedCell.row]?.id;
+            const rowId = sortedData[focusedCell.row]?.id;
             if (rowId) {
               handleCellChange(
                 rowId,
@@ -536,16 +601,14 @@ const ExcelGrid = ({
           e.preventDefault();
           setEditingCell({ rowIndex: focusedCell.row, col: focusedCell.col });
           const currentValue =
-            filteredData[focusedCell.row]?.cells[focusedCell.col] || "";
+            sortedData[focusedCell.row]?.cells[focusedCell.col] || "";
           currentEditValue.current = currentValue;
           return;
         default:
-          // Start editing if alphanumeric key is pressed
           if (key.length === 1 && !ctrlKey && !editingCell) {
             e.preventDefault();
             setEditingCell({ rowIndex: focusedCell.row, col: focusedCell.col });
-            // Clear cell and start with new character
-            const rowId = filteredData[focusedCell.row]?.id;
+            const rowId = sortedData[focusedCell.row]?.id;
             if (rowId) {
               handleCellChange(rowId, focusedCell.col, key);
             }
@@ -563,44 +626,15 @@ const ExcelGrid = ({
     contextMenu.isOpen,
     undo,
     redo,
+    sortedData,
+    currentColumns,
+    handleCopy,
+    handleCut,
+    handlePaste,
+    handleCellChange,
   ]);
 
-  // Filter data based on active filters
-  const filteredData = data.filter((row) => {
-    return Object.entries(filters).every(([colIndex, filterValue]) => {
-      if (!filterValue) return true;
-      const cellValue = row.cells[parseInt(colIndex)] || "";
-      return cellValue
-        .toString()
-        .toLowerCase()
-        .includes(filterValue.toLowerCase());
-    });
-  });
-
-  // Sort data if sort config is set
-  const sortedData = [...filteredData].sort((a, b) => {
-    if (!sortConfig.key) return 0;
-
-    const aValue = a.cells[sortConfig.key] || "";
-    const bValue = b.cells[sortConfig.key] || "";
-
-    // Try to parse as numbers for proper numeric sorting
-    const aNum = parseFloat(aValue);
-    const bNum = parseFloat(bValue);
-
-    if (!isNaN(aNum) && !isNaN(bNum)) {
-      return sortConfig.direction === "asc" ? aNum - bNum : bNum - aNum;
-    }
-
-    // String comparison
-    const aStr = aValue.toString().toLowerCase();
-    const bStr = bValue.toString().toLowerCase();
-
-    if (aStr < bStr) return sortConfig.direction === "asc" ? -1 : 1;
-    if (aStr > bStr) return sortConfig.direction === "asc" ? 1 : -1;
-    return 0;
-  });
-
+  // Cell interaction handlers
   const handleCellClick = (rowIndex, col) => {
     setFocusedCell({ row: rowIndex, col });
     setEditingCell(null);
@@ -610,20 +644,6 @@ const ExcelGrid = ({
     setEditingCell({ rowIndex, col });
     const currentValue = sortedData[rowIndex]?.cells[col] || "";
     currentEditValue.current = currentValue;
-  };
-
-  const handleCellChange = (rowId, col, value) => {
-    const newData = data.map((row) => {
-      if (row.id === rowId) {
-        const newCells = [...row.cells];
-        newCells[col] = value;
-        return { ...row, cells: newCells };
-      }
-      return row;
-    });
-    setData(newData);
-    onDataChange(newData);
-    addToHistory(newData);
   };
 
   const handleSort = (colIndex) => {
@@ -651,142 +671,57 @@ const ExcelGrid = ({
     });
   };
 
-  const handleInsertRowAbove = () => {
-    const newRow = {
-      id: `row_${Date.now()}_${Math.random()}`,
-      cells: Array(currentColumns).fill(""),
-    };
-    const newData = [...data];
-    newData.splice(focusedCell.row, 0, newRow);
+  // Button action handlers
+  const handleAddRow = () => {
+    const newData = addNewRow(data, currentColumns);
     setData(newData);
     onDataChange(newData);
-    addToHistory(newData);
+    addToHistoryHandler(newData);
   };
 
-  const handleInsertRowBelow = () => {
-    const newRow = {
-      id: `row_${Date.now()}_${Math.random()}`,
-      cells: Array(currentColumns).fill(""),
-    };
-    const newData = [...data];
-    newData.splice(focusedCell.row + 1, 0, newRow);
+  const handleAddColumn = () => {
+    const newData = addNewColumn(data);
     setData(newData);
     onDataChange(newData);
-    addToHistory(newData);
+    addToHistoryHandler(newData);
   };
 
-  const handleInsertColumnLeft = () => {
-    const newData = data.map((row) => {
-      const newCells = [...row.cells];
-      newCells.splice(focusedCell.col, 0, "");
-      return { ...row, cells: newCells };
-    });
+  const handleDeleteRow = () => {
+    if (data.length <= 1) return;
+    const newData = deleteRow(data, focusedCell.row);
+    const adjustedFocus = adjustFocusAfterRowDeletion(
+      focusedCell,
+      newData.length
+    );
     setData(newData);
+    setFocusedCell(adjustedFocus);
     onDataChange(newData);
-    addToHistory(newData);
+    addToHistoryHandler(newData);
   };
 
-  const handleInsertColumnRight = () => {
-    const newData = data.map((row) => {
-      const newCells = [...row.cells];
-      newCells.splice(focusedCell.col + 1, 0, "");
-      return { ...row, cells: newCells };
-    });
+  const handleDeleteColumn = () => {
+    if (currentColumns <= 1) return;
+    const newData = deleteColumn(data, focusedCell.col);
+    const adjustedFocus = adjustFocusAfterColumnDeletion(
+      focusedCell,
+      newData[0]?.cells?.length || 0
+    );
     setData(newData);
+    setFocusedCell(adjustedFocus);
     onDataChange(newData);
-    addToHistory(newData);
+    addToHistoryHandler(newData);
   };
 
-  const handleCopy = () => {
-    const value = sortedData[focusedCell.row]?.cells[focusedCell.col] || "";
-    setClipboard({ data: value, type: "copy" });
-  };
-
-  const handleCut = () => {
-    const value = sortedData[focusedCell.row]?.cells[focusedCell.col] || "";
-    setClipboard({ data: value, type: "cut" });
-    const rowId = sortedData[focusedCell.row]?.id;
-    if (rowId) {
-      handleCellChange(rowId, focusedCell.col, "");
-    }
-  };
-
-  const handlePaste = () => {
-    if (clipboard.data !== null) {
-      const rowId = sortedData[focusedCell.row]?.id;
-      if (rowId) {
-        handleCellChange(rowId, focusedCell.col, clipboard.data);
-      }
-    }
-  };
-
-  // Add/Delete/Clear functions
-  const addRow = () => {
-    const newRow = {
-      id: `row_${data.length}_${Date.now()}_${Math.random()}`,
-      cells: Array(currentColumns).fill(""),
-    };
-    const newData = [...data, newRow];
-    setData(newData);
-    onDataChange(newData);
-    addToHistory(newData);
-  };
-
-  const deleteRow = (rowIndex) => {
-    if (data.length <= 1) return; // Keep at least one row
-    const newData = data.filter((_, index) => index !== rowIndex);
-    setData(newData);
-    onDataChange(newData);
-    addToHistory(newData);
-
-    // Adjust focused cell if necessary
-    if (focusedCell.row >= newData.length) {
-      setFocusedCell({ row: newData.length - 1, col: focusedCell.col });
-    }
-  };
-
-  const addColumn = () => {
-    const newData = data.map((row) => ({
-      ...row,
-      cells: [...row.cells, ""],
-    }));
-    setData(newData);
-    onDataChange(newData);
-    addToHistory(newData);
-  };
-
-  const deleteColumn = (colIndex) => {
-    if (currentColumns <= 1) return; // Keep at least one column
-    const newData = data.map((row) => ({
-      ...row,
-      cells: row.cells.filter((_, index) => index !== colIndex),
-    }));
-    setData(newData);
-    onDataChange(newData);
-    addToHistory(newData);
-
-    // Adjust focused cell if necessary
-    if (focusedCell.col >= newData[0]?.cells.length) {
-      setFocusedCell({
-        row: focusedCell.row,
-        col: newData[0]?.cells.length - 1,
-      });
-    }
-  };
-
-  const clearAllData = () => {
+  const handleClearAll = () => {
     if (
       window.confirm(
         "Are you sure you want to clear all data? This action cannot be undone."
       )
     ) {
-      const newData = data.map((row) => ({
-        ...row,
-        cells: row.cells.map(() => ""),
-      }));
+      const newData = clearAllData(data);
       setData(newData);
       onDataChange(newData);
-      addToHistory(newData);
+      addToHistoryHandler(newData);
       setFilters({});
       setSortConfig({ key: null, direction: "asc" });
     }
@@ -794,51 +729,17 @@ const ExcelGrid = ({
 
   // File Manager functions
   const handleSave = (fileName) => {
-    const dataToSave = {
-      fileName,
-      data: data.map((row) => row.cells),
-      timestamp: new Date().toISOString(),
-    };
-
-    const blob = new Blob([JSON.stringify(dataToSave, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${fileName}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    saveToFile(data, fileName);
   };
 
   const handleImport = (file) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const importedData = JSON.parse(e.target.result);
-        if (importedData.data && Array.isArray(importedData.data)) {
-          const newData = [];
-          for (
-            let i = 0;
-            i < Math.max(importedData.data.length, initialRows);
-            i++
-          ) {
-            newData[i] = {
-              id: `row_${i}_${Date.now()}_${Math.random()}`,
-              cells: importedData.data[i] || Array(initialColumns).fill(""),
-            };
-          }
-          setData(newData);
-          onDataChange(newData);
-          addToHistory(newData);
-          setFilters({});
-          setSortConfig({ key: null, direction: "asc" });
-        }
-      } catch (error) {
-        alert("Error importing file. Please make sure it's a valid JSON file.");
-      }
-    };
-    reader.readAsText(file);
+    importFromFile(file, initialRows, initialColumns, (newData) => {
+      setData(newData);
+      onDataChange(newData);
+      addToHistoryHandler(newData);
+      setFilters({});
+      setSortConfig({ key: null, direction: "asc" });
+    });
   };
 
   const handleRefresh = () => {
@@ -847,34 +748,18 @@ const ExcelGrid = ({
         "Are you sure you want to refresh? This will reset all data to the initial state."
       )
     ) {
-      const gridData = [];
-      const actualRows = Math.max(initialRows, initialData.length);
-      const actualColumns = Math.max(
-        initialColumns,
-        Math.max(...initialData.map((row) => row?.length || 0), 0)
+      const newData = initializeGridData(
+        initialData,
+        initialRows,
+        initialColumns
       );
-
-      for (let i = 0; i < actualRows; i++) {
-        gridData[i] = {
-          id: `row_${i}_${Date.now()}_${Math.random()}`,
-          cells: [],
-        };
-        for (let j = 0; j < actualColumns; j++) {
-          gridData[i].cells[j] = initialData[i]?.[j] || "";
-        }
-      }
-      setData(gridData);
-      onDataChange(gridData);
-      addToHistory(gridData);
+      setData(newData);
+      onDataChange(newData);
+      addToHistoryHandler(newData);
       setFilters({});
       setSortConfig({ key: null, direction: "asc" });
       setFocusedCell({ row: 0, col: 0 });
     }
-  };
-
-  const getSortIcon = (colIndex) => {
-    if (sortConfig.key !== colIndex) return "⇅";
-    return sortConfig.direction === "asc" ? "↑" : "↓";
   };
 
   return (
@@ -914,15 +799,11 @@ const ExcelGrid = ({
             gap: "10px",
           }}
         >
-          <button onClick={addRow}>➕ Add Row</button>
-          <button onClick={addColumn}>➕ Add Column</button>
-          <button onClick={() => deleteRow(focusedCell.row)}>
-            🗑️ Delete Row
-          </button>
-          <button onClick={() => deleteColumn(focusedCell.col)}>
-            🗑️ Delete Column
-          </button>
-          <button onClick={clearAllData}>🧹 Clear All</button>
+          <button onClick={handleAddRow}>➕ Add Row</button>
+          <button onClick={handleAddColumn}>➕ Add Column</button>
+          <button onClick={handleDeleteRow}>🗑️ Delete Row</button>
+          <button onClick={handleDeleteColumn}>🗑️ Delete Column</button>
+          <button onClick={handleClearAll}>🧹 Clear All</button>
           <button onClick={undo} disabled={historyIndex <= 0}>
             ↩️ Undo
           </button>
@@ -967,7 +848,7 @@ const ExcelGrid = ({
                   }}
                 >
                   <div>
-                    {header} {getSortIcon(colIndex)}
+                    {header} {getSortIcon(colIndex, sortConfig)}
                   </div>
                   <input
                     type="text"
@@ -1059,16 +940,8 @@ const ExcelGrid = ({
         isOpen={contextMenu.isOpen}
         position={contextMenu.position}
         onClose={() => setContextMenu({ ...contextMenu, isOpen: false })}
+        onMenuAction={handleContextMenuAction}
         focusedCell={focusedCell}
-        onInsertRowAbove={handleInsertRowAbove}
-        onInsertRowBelow={handleInsertRowBelow}
-        onInsertColumnLeft={handleInsertColumnLeft}
-        onInsertColumnRight={handleInsertColumnRight}
-        onDeleteRow={() => deleteRow(focusedCell.row)}
-        onDeleteColumn={() => deleteColumn(focusedCell.col)}
-        onCopy={handleCopy}
-        onCut={handleCut}
-        onPaste={handlePaste}
       />
 
       {/* File Manager Modal */}
