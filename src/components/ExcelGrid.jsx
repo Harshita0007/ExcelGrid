@@ -810,9 +810,6 @@ const ExcelGrid = ({
           <button onClick={undo} disabled={historyIndex <= 0}>
             ↩️ Undo
           </button>
-          <button onClick={redo} disabled={historyIndex >= history.length - 1}>
-            ↪️ Redo
-          </button>
         </div>
       </div>
       {/* Spreadsheet Grid */}
