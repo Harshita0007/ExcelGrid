@@ -1,6 +1,3 @@
-// ExcelUtils.jsx - Enhanced utility functions for Excel-like grid
-
-// Generate column headers (A, B, C, ..., Z, AA, AB, etc.)
 export const generateColumnHeaders = (numCols) => {
   const headers = [];
   for (let i = 0; i < numCols; i++) {
@@ -15,7 +12,6 @@ export const generateColumnHeaders = (numCols) => {
   return headers;
 };
 
-// Initialize grid data
 export const initializeGridData = (
   initialData,
   initialRows,
@@ -40,7 +36,6 @@ export const initializeGridData = (
   return gridData;
 };
 
-// ENHANCED FILTER FUNCTIONALITY
 export const filterData = (data, filters) => {
   return data.filter((row) => {
     return Object.entries(filters).every(([colIndex, filterConfig]) => {
@@ -80,7 +75,6 @@ export const filterData = (data, filters) => {
   });
 };
 
-// ENHANCED SORT FUNCTIONALITY
 export const sortData = (data, sortConfig) => {
   if (!sortConfig.key && sortConfig.key !== 0) return data;
 
@@ -88,7 +82,6 @@ export const sortData = (data, sortConfig) => {
     const aValue = a.cells[sortConfig.key] || "";
     const bValue = b.cells[sortConfig.key] || "";
 
-    // Handle different sort types
     switch (sortConfig.type) {
       case "number":
         const aNum = parseFloat(aValue) || 0;
@@ -104,7 +97,6 @@ export const sortData = (data, sortConfig) => {
 
       case "text":
       default:
-        // Auto-detect if values are numbers
         const aNum2 = parseFloat(aValue);
         const bNum2 = parseFloat(bValue);
 
@@ -112,7 +104,6 @@ export const sortData = (data, sortConfig) => {
           return sortConfig.direction === "asc" ? aNum2 - bNum2 : bNum2 - aNum2;
         }
 
-        // String comparison
         const aStr = aValue.toString().toLowerCase();
         const bStr = bValue.toString().toLowerCase();
 
@@ -123,13 +114,11 @@ export const sortData = (data, sortConfig) => {
   });
 };
 
-// Get sort icon based on current sort configuration
 export const getSortIcon = (colIndex, sortConfig) => {
   if (sortConfig.key !== colIndex) return "⇅";
   return sortConfig.direction === "asc" ? "↑" : "↓";
 };
 
-// ENHANCED COLUMN/ROW INSERTION WITH BETTER POSITIONING
 export const insertRowAbove = (data, rowIndex, numColumns) => {
   const newRow = {
     id: `row_${Date.now()}_${Math.random()}`,
@@ -166,7 +155,6 @@ export const insertColumnRight = (data, colIndex) => {
   });
 };
 
-// BULK INSERT OPERATIONS
 export const insertMultipleRows = (data, startIndex, count, numColumns) => {
   const newRows = [];
   for (let i = 0; i < count; i++) {
@@ -189,7 +177,6 @@ export const insertMultipleColumns = (data, startIndex, count) => {
   });
 };
 
-// Add multiple columns functions
 export const addMultipleColumns = (data, count = 5) => {
   return data.map((row) => ({
     ...row,
@@ -223,7 +210,6 @@ export const insertMultipleRowsBelow = (
   return insertMultipleRows(data, rowIndex + 1, count, numColumns);
 };
 
-// ADVANCED FILTERING UTILITIES
 export const getUniqueColumnValues = (data, columnIndex) => {
   const uniqueValues = new Set();
   data.forEach((row) => {
@@ -255,7 +241,6 @@ export const detectColumnDataType = (data, columnIndex) => {
   return "text";
 };
 
-// FILTER PRESETS
 export const getFilterPresets = () => [
   { label: "Contains", value: "contains", icon: "🔍" },
   { label: "Equals", value: "equals", icon: "=" },
@@ -267,7 +252,6 @@ export const getFilterPresets = () => [
   { label: "Empty", value: "empty", icon: "📋" },
 ];
 
-// Handle cell value changes
 export const updateCellValue = (data, rowId, colIndex, value) => {
   return data.map((row) => {
     if (row.id === rowId) {
@@ -279,13 +263,11 @@ export const updateCellValue = (data, rowId, colIndex, value) => {
   });
 };
 
-// UTILITY: Find row index by row ID with error handling
 export const findRowIndexById = (data, rowId) => {
   if (!data || !Array.isArray(data)) return -1;
   return data.findIndex((row) => row && row.id === rowId);
 };
 
-// FIXED: Clear cell data function - simplified and consistent
 export const clearCellData = (data, rowIdentifier, colIndex) => {
   console.log("Clear cell data called:", {
     rowIdentifier,
@@ -294,7 +276,6 @@ export const clearCellData = (data, rowIdentifier, colIndex) => {
   });
 
   return data.map((row, rIndex) => {
-    // Check if rowIdentifier is a number (rowIndex) or string (rowId)
     const isMatch =
       typeof rowIdentifier === "number"
         ? rIndex === rowIdentifier
@@ -302,7 +283,7 @@ export const clearCellData = (data, rowIdentifier, colIndex) => {
 
     if (isMatch) {
       const newCells = [...row.cells];
-      // Ensure the column index exists
+
       if (colIndex >= 0 && colIndex < newCells.length) {
         console.log(
           "Clearing cell at row",
@@ -320,7 +301,6 @@ export const clearCellData = (data, rowIdentifier, colIndex) => {
   });
 };
 
-// FIXED: Clear cell by ID
 export const clearCellDataById = (data, rowId, colIndex) => {
   console.log("Clear cell by ID:", { rowId, colIndex });
 
@@ -337,7 +317,6 @@ export const clearCellDataById = (data, rowId, colIndex) => {
   });
 };
 
-// FIXED: Clear cell by index
 export const clearCellDataByIndex = (data, rowIndex, colIndex) => {
   console.log("Clear cell by index:", {
     rowIndex,
@@ -363,7 +342,6 @@ export const clearCellDataByIndex = (data, rowIndex, colIndex) => {
   });
 };
 
-// Clear multiple cells
 export const clearCellsData = (data, cellPositions) => {
   return data.map((row, rIndex) => {
     const newCells = [...row.cells];
@@ -376,7 +354,6 @@ export const clearCellsData = (data, cellPositions) => {
   });
 };
 
-// Clear entire row
 export const clearRowData = (data, rowIndex) => {
   return data.map((row, rIndex) => {
     if (rIndex === rowIndex) {
@@ -389,7 +366,6 @@ export const clearRowData = (data, rowIndex) => {
   });
 };
 
-// Clear entire column
 export const clearColumnData = (data, colIndex) => {
   return data.map((row) => {
     const newCells = [...row.cells];
@@ -398,7 +374,6 @@ export const clearColumnData = (data, colIndex) => {
   });
 };
 
-// Add new row
 export const addNewRow = (data, numColumns) => {
   const newRow = {
     id: `row_${data.length}_${Date.now()}_${Math.random()}`,
@@ -407,7 +382,6 @@ export const addNewRow = (data, numColumns) => {
   return [...data, newRow];
 };
 
-// Add new column
 export const addNewColumn = (data) => {
   return data.map((row) => ({
     ...row,
@@ -415,13 +389,11 @@ export const addNewColumn = (data) => {
   }));
 };
 
-// Delete row
 export const deleteRow = (data, rowIndex) => {
   if (data.length <= 1) return data;
   return data.filter((_, index) => index !== rowIndex);
 };
 
-// Delete column
 export const deleteColumn = (data, colIndex) => {
   const numColumns = data[0]?.cells?.length || 0;
   if (numColumns <= 1) return data;
@@ -432,7 +404,6 @@ export const deleteColumn = (data, colIndex) => {
   }));
 };
 
-// Clear all data
 export const clearAllData = (data) => {
   return data.map((row) => ({
     ...row,
@@ -440,7 +411,6 @@ export const clearAllData = (data) => {
   }));
 };
 
-// Navigation utilities
 export const getNextFocusedCell = (
   focusedCell,
   direction,
@@ -489,7 +459,6 @@ export const getNextFocusedCell = (
   return { row: newRow, col: newCol };
 };
 
-// File operations
 export const saveToFile = (data, fileName) => {
   const dataToSave = {
     fileName,
@@ -525,7 +494,6 @@ export const importFromFile = (file, callback) => {
   reader.readAsText(file);
 };
 
-// History management utilities
 export const addToHistory = (history, historyIndex, newData) => {
   const newHistory = history.slice(0, historyIndex + 1);
   newHistory.push(JSON.parse(JSON.stringify(newData)));
@@ -535,13 +503,11 @@ export const addToHistory = (history, historyIndex, newData) => {
   };
 };
 
-// Column width calculation
 export const calculateColumnWidth = (containerWidth, numColumns) => {
   const availableWidth = containerWidth - 60;
   return Math.max(80, Math.floor(availableWidth / numColumns));
 };
 
-// Focus adjustment utilities
 export const adjustFocusAfterRowDeletion = (focusedCell, dataLength) => {
   if (focusedCell.row >= dataLength) {
     return { ...focusedCell, row: dataLength - 1 };
@@ -556,20 +522,18 @@ export const adjustFocusAfterColumnDeletion = (focusedCell, numColumns) => {
   return focusedCell;
 };
 
-// Auto-fit column width based on content
 export const autoFitColumnWidth = (data, colIndex) => {
-  let maxWidth = 50; // Minimum width
+  let maxWidth = 50;
 
   data.forEach((row) => {
     const cellValue = row.cells[colIndex] || "";
-    const textWidth = cellValue.toString().length * 8; // Rough estimate
+    const textWidth = cellValue.toString().length * 8;
     maxWidth = Math.max(maxWidth, textWidth);
   });
 
-  return Math.min(maxWidth, 300); // Maximum width of 300px
+  return Math.min(maxWidth, 300);
 };
 
-// SIMPLIFIED CONTEXT MENU WITH ESSENTIAL OPTIONS
 export const getContextMenuItems = () => [
   { label: "Insert Row Above", action: "insertRowAbove", icon: "⬆️" },
   { label: "Insert Row Below", action: "insertRowBelow", icon: "⬇️" },
@@ -586,7 +550,6 @@ export const getContextMenuItems = () => [
   { label: "---", action: null },
 ];
 
-// FIXED: Context menu handler with proper error handling and debugging
 export const handleContextMenuAction = (action, data, focusedCell) => {
   console.log("=== CONTEXT MENU ACTION ===");
   console.log("Action:", action);
@@ -663,7 +626,6 @@ export const handleContextMenuAction = (action, data, focusedCell) => {
   }
 };
 
-// DEBUGGING: Function to log current state
 export const debugClearCell = (data, focusedCell) => {
   console.log("=== DEBUG CLEAR CELL ===");
   console.log("Data length:", data.length);
@@ -682,7 +644,6 @@ export const debugClearCell = (data, focusedCell) => {
   console.log("========================");
 };
 
-// TESTING: Simple test function for clear cell
 export const testClearCellFunction = (data, focusedCell) => {
   console.log("=== TESTING CLEAR CELL ===");
   debugClearCell(data, focusedCell);

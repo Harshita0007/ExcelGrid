@@ -26,7 +26,6 @@ import {
   getFilterPresets,
 } from "./ExcelUtils";
 
-// Context Menu Component
 const ContextMenu = ({
   isOpen,
   position,
@@ -122,7 +121,6 @@ const ContextMenu = ({
   );
 };
 
-// File Manager Modal Component
 const FileManagerModal = ({ isOpen, onClose, onSave, onImport, onRefresh }) => {
   const [fileName, setFileName] = useState("spreadsheet");
   const fileInputRef = useRef(null);
@@ -277,7 +275,6 @@ const FileManagerModal = ({ isOpen, onClose, onSave, onImport, onRefresh }) => {
   );
 };
 
-// Main Excel Grid Component
 const ExcelGrid = ({
   initialData = [],
   rows: initialRows = 20,
@@ -310,7 +307,6 @@ const ExcelGrid = ({
   const currentColumns = data[0]?.cells?.length || 0;
   const columnHeaders = generateColumnHeaders(currentColumns);
 
-  // Add to history for undo/redo
   const addToHistoryHandler = useCallback(
     (newData) => {
       const historyResult = addToHistory(history, historyIndex, newData);
@@ -320,7 +316,6 @@ const ExcelGrid = ({
     [history, historyIndex]
   );
 
-  // Undo function
   const undo = useCallback(() => {
     if (historyIndex > 0) {
       const previousData = history[historyIndex - 1];
@@ -330,7 +325,6 @@ const ExcelGrid = ({
     }
   }, [history, historyIndex, onDataChange]);
 
-  // Redo function
   const redo = useCallback(() => {
     if (historyIndex < history.length - 1) {
       const nextData = history[historyIndex + 1];
@@ -340,7 +334,6 @@ const ExcelGrid = ({
     }
   }, [history, historyIndex, onDataChange]);
 
-  // Initialize history
   useEffect(() => {
     if (history.length === 0) {
       setHistory([JSON.parse(JSON.stringify(data))]);
@@ -348,7 +341,6 @@ const ExcelGrid = ({
     }
   }, []);
 
-  // Resize observer to dynamically adjust column width
   useEffect(() => {
     const updateColumnWidth = () => {
       if (gridWrapperRef.current) {
@@ -368,11 +360,9 @@ const ExcelGrid = ({
     return () => observer.disconnect();
   }, [currentColumns]);
 
-  // Get filtered and sorted data
   const filteredData = filterData(data, filters);
   const sortedData = sortData(filteredData, sortConfig);
 
-  // Cell change handler
   const handleCellChange = (rowId, col, value) => {
     const newData = updateCellValue(data, rowId, col, value);
     setData(newData);
@@ -380,7 +370,6 @@ const ExcelGrid = ({
     addToHistoryHandler(newData);
   };
 
-  // Context menu actions handler
   const handleContextMenuAction = (action) => {
     let newData;
 
@@ -433,7 +422,6 @@ const ExcelGrid = ({
     }
   };
 
-  // Copy, Cut, Paste handlers
   const handleCopy = () => {
     const value = sortedData[focusedCell.row]?.cells[focusedCell.col] || "";
     setClipboard({ data: value, type: "copy" });
@@ -457,7 +445,6 @@ const ExcelGrid = ({
     }
   };
 
-  // Global keyboard event handler
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
       if (showFileManager || contextMenu.isOpen) return;
@@ -465,7 +452,6 @@ const ExcelGrid = ({
       const key = e.key;
       const ctrlKey = e.ctrlKey || e.metaKey;
 
-      // Handle Ctrl+Z (Undo) and Ctrl+Y (Redo)
       if (ctrlKey && key === "z" && !e.shiftKey) {
         e.preventDefault();
         undo();
@@ -478,7 +464,6 @@ const ExcelGrid = ({
         return;
       }
 
-      // Handle Ctrl+C (Copy), Ctrl+X (Cut), Ctrl+V (Paste)
       if (ctrlKey && key === "c") {
         e.preventDefault();
         handleCopy();
@@ -497,9 +482,7 @@ const ExcelGrid = ({
         return;
       }
 
-      // Handle Delete and Backspace keys
       if (key === "Delete" || key === "Backspace") {
-        // ✅ Let it behave normally if an input is focused (e.g., editing cell)
         const tag = document.activeElement?.tagName;
         if (tag === "INPUT" || tag === "TEXTAREA") return;
 
@@ -513,7 +496,6 @@ const ExcelGrid = ({
         return;
       }
 
-      // Handle navigation and editing
       let newFocusedCell;
       switch (key) {
         case "Tab":
@@ -640,7 +622,6 @@ const ExcelGrid = ({
     handleCellChange,
   ]);
 
-  // Cell interaction handlers
   const handleCellClick = (rowIndex, col) => {
     setFocusedCell({ row: rowIndex, col });
     setEditingCell(null);
@@ -665,12 +646,11 @@ const ExcelGrid = ({
       [colIndex]: {
         ...(prev[colIndex] || {}),
         value,
-        type: prev[colIndex]?.type || "contains", // default type
+        type: prev[colIndex]?.type || "contains",
       },
     }));
   };
 
-  // Context menu handlers
   const handleContextMenu = (e, rowIndex, colIndex) => {
     e.preventDefault();
     setFocusedCell({ row: rowIndex, col: colIndex });
@@ -680,7 +660,6 @@ const ExcelGrid = ({
     });
   };
 
-  // Button action handlers
   const handleAddRow = () => {
     const newData = addNewRow(data, currentColumns);
     setData(newData);
@@ -736,7 +715,6 @@ const ExcelGrid = ({
     }
   };
 
-  // File Manager functions
   const handleSave = (fileName) => {
     saveToFile(data, fileName);
   };
@@ -773,7 +751,6 @@ const ExcelGrid = ({
 
   return (
     <div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
-      {/* File Manager Button */}
       <button
         onClick={() => setShowFileManager(true)}
         style={{
@@ -795,7 +772,6 @@ const ExcelGrid = ({
         📥 Download Manager
       </button>
 
-      {/* Control Panel */}
       <div style={{ marginBottom: "20px" }}>
         <div
           style={{
@@ -832,7 +808,6 @@ const ExcelGrid = ({
           style={{ borderCollapse: "collapse", width: "100%" }}
         >
           <thead>
-            {/* Column Headers */}
             <tr>
               <th
                 style={{
@@ -865,7 +840,6 @@ const ExcelGrid = ({
               ))}
             </tr>
 
-            {/* Filter Row with Type + Value */}
             <tr>
               <th
                 style={{
@@ -896,7 +870,6 @@ const ExcelGrid = ({
                       gap: "4px",
                     }}
                   >
-                    {/* Filter Type Dropdown */}
                     <select
                       value={filters[colIndex]?.type || "contains"}
                       onChange={(e) =>
@@ -927,7 +900,6 @@ const ExcelGrid = ({
                       ))}
                     </select>
 
-                    {/* Filter Input Field */}
                     <input
                       type="text"
                       value={filters[colIndex]?.value || ""}
@@ -1025,7 +997,6 @@ const ExcelGrid = ({
           </tbody>
         </table>
       </div>
-      {/* Context Menu */}
       <ContextMenu
         isOpen={contextMenu.isOpen}
         position={contextMenu.position}
@@ -1034,7 +1005,6 @@ const ExcelGrid = ({
         focusedCell={focusedCell}
       />
 
-      {/* File Manager Modal */}
       <FileManagerModal
         isOpen={showFileManager}
         onClose={() => setShowFileManager(false)}
