@@ -23,6 +23,7 @@ import {
   adjustFocusAfterRowDeletion,
   adjustFocusAfterColumnDeletion,
   getContextMenuItems,
+  getFilterPresets,
 } from "./ExcelUtils";
 
 // Context Menu Component
@@ -171,7 +172,7 @@ const FileManagerModal = ({ isOpen, onClose, onSave, onImport, onRefresh }) => {
         }}
       >
         <h3 style={{ marginTop: 0, marginBottom: "20px", color: "#333" }}>
-          File Manager
+          Download Manager
         </h3>
 
         <div style={{ marginBottom: "20px" }}>
@@ -496,10 +497,15 @@ const ExcelGrid = ({
         return;
       }
 
-      // Handle Delete key
+      // Handle Delete and Backspace keys
       if (key === "Delete" || key === "Backspace") {
+        // ✅ Let it behave normally if an input is focused (e.g., editing cell)
+        const tag = document.activeElement?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
+
         e.preventDefault();
         if (editingCell) return;
+
         const rowId = sortedData[focusedCell.row]?.id;
         if (rowId) {
           handleCellChange(rowId, focusedCell.col, "");
@@ -786,15 +792,11 @@ const ExcelGrid = ({
           zIndex: 100,
         }}
       >
-        📁 File Manager
+        📥 Download Manager
       </button>
 
       {/* Control Panel */}
       <div style={{ marginBottom: "20px" }}>
-        <h2 style={{ margin: 0, marginBottom: "15px", color: "#333" }}>
-          Enhanced Excel-like Grid
-        </h2>
-
         <div
           style={{
             display: "flex",
@@ -863,7 +865,7 @@ const ExcelGrid = ({
               ))}
             </tr>
 
-            {/* Filter Inputs Row */}
+            {/* Filter Row with Type + Value */}
             <tr>
               <th
                 style={{
@@ -878,32 +880,74 @@ const ExcelGrid = ({
                 <th
                   key={`filter-${colIndex}`}
                   style={{
-                    width: `${colWidth}px`,
+                    padding: "4px",
                     backgroundColor: "#fff",
                     border: "1px solid #ddd",
                     position: "sticky",
                     top: 40,
                     zIndex: 1,
+                    height: "60px",
                   }}
                 >
-                  <input
-                    type="text"
-                    value={filters[colIndex]?.value || ""}
-                    onChange={(e) =>
-                      handleFilterChange(colIndex, e.target.value)
-                    }
-                    onClick={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onFocus={(e) => e.stopPropagation()}
-                    onKeyDown={(e) => e.stopPropagation()}
+                  <div
                     style={{
-                      width: "90%",
-                      padding: "2px",
-                      fontSize: "12px",
-                      border: "1px solid #ccc",
-                      borderRadius: "2px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "4px",
                     }}
-                  />
+                  >
+                    {/* Filter Type Dropdown */}
+                    <select
+                      value={filters[colIndex]?.type || "contains"}
+                      onChange={(e) =>
+                        setFilters((prev) => ({
+                          ...prev,
+                          [colIndex]: {
+                            ...(prev[colIndex] || {}),
+                            type: e.target.value,
+                          },
+                        }))
+                      }
+                      onClick={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onFocus={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      style={{
+                        width: "100%",
+                        fontSize: "12px",
+                        padding: "2px 4px",
+                        border: "1px solid #ccc",
+                        borderRadius: "4px",
+                      }}
+                    >
+                      {getFilterPresets().map((preset) => (
+                        <option key={preset.value} value={preset.value}>
+                          {preset.icon} {preset.label}
+                        </option>
+                      ))}
+                    </select>
+
+                    {/* Filter Input Field */}
+                    <input
+                      type="text"
+                      value={filters[colIndex]?.value || ""}
+                      onChange={(e) =>
+                        handleFilterChange(colIndex, e.target.value)
+                      }
+                      onClick={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onFocus={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      style={{
+                        width: "100%",
+                        padding: "4px 6px",
+                        fontSize: "12px",
+                        border: "1px solid #ccc",
+                        borderRadius: "4px",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  </div>
                 </th>
               ))}
             </tr>

@@ -586,12 +586,6 @@ export const getContextMenuItems = () => [
   { label: "---", action: null },
 ];
 
-// FIXED: Handle backspace key for erasing cell content
-export const handleBackspaceKey = (data, rowIdentifier, colIndex) => {
-  console.log("Backspace key pressed:", { rowIdentifier, colIndex });
-  return clearCellData(data, rowIdentifier, colIndex);
-};
-
 // FIXED: Context menu handler with proper error handling and debugging
 export const handleContextMenuAction = (action, data, focusedCell) => {
   console.log("=== CONTEXT MENU ACTION ===");
