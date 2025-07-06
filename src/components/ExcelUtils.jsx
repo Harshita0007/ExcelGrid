@@ -1,4 +1,6 @@
-export const generateColumnHeaders = (numCols) => {
+import * as XLSX from 'xlsx';
+
+export const createColumnHeaders = (numCols) => {
   const headers = [];
   for (let i = 0; i < numCols; i++) {
     let header = "",
@@ -12,7 +14,7 @@ export const generateColumnHeaders = (numCols) => {
   return headers;
 };
 
-export const initializeGridData = (
+export const createInitialGridData = (
   initialData,
   initialRows,
   initialColumns
@@ -78,40 +80,60 @@ export const filterData = (data, filters) => {
 export const sortData = (data, sortConfig) => {
   if (!sortConfig.key && sortConfig.key !== 0) return data;
 
-  return [...data].sort((a, b) => {
-    const aValue = a.cells[sortConfig.key] || "";
-    const bValue = b.cells[sortConfig.key] || "";
+  // Separate rows with empty cells in the sort column
+  const nonEmptyRows = [];
+  const emptyRows = [];
+  data.forEach((row, idx) => {
+    const value = row.cells[sortConfig.key];
+    if (value === undefined || value === null || value.toString().trim() === "") {
+      emptyRows.push({ row, idx });
+    } else {
+      nonEmptyRows.push({ row, idx });
+    }
+  });
 
+  // Sort only non-empty rows
+  nonEmptyRows.sort((aObj, bObj) => {
+    const aValue = aObj.row.cells[sortConfig.key] || "";
+    const bValue = bObj.row.cells[sortConfig.key] || "";
     switch (sortConfig.type) {
       case "number":
         const aNum = parseFloat(aValue) || 0;
         const bNum = parseFloat(bValue) || 0;
         return sortConfig.direction === "asc" ? aNum - bNum : bNum - aNum;
-
       case "date":
         const aDate = new Date(aValue);
         const bDate = new Date(bValue);
         const aTime = isNaN(aDate.getTime()) ? 0 : aDate.getTime();
         const bTime = isNaN(bDate.getTime()) ? 0 : bDate.getTime();
         return sortConfig.direction === "asc" ? aTime - bTime : bTime - aTime;
-
       case "text":
       default:
         const aNum2 = parseFloat(aValue);
         const bNum2 = parseFloat(bValue);
-
         if (!isNaN(aNum2) && !isNaN(bNum2)) {
           return sortConfig.direction === "asc" ? aNum2 - bNum2 : bNum2 - aNum2;
         }
-
         const aStr = aValue.toString().toLowerCase();
         const bStr = bValue.toString().toLowerCase();
-
         if (aStr < bStr) return sortConfig.direction === "asc" ? -1 : 1;
         if (aStr > bStr) return sortConfig.direction === "asc" ? 1 : -1;
         return 0;
     }
   });
+
+  // Reconstruct the array, preserving empty cell positions
+  const result = Array(data.length);
+  let nonEmptyIdx = 0;
+  let emptyIdx = 0;
+  for (let i = 0; i < data.length; i++) {
+    if (emptyRows.length > 0 && emptyRows[0].idx === i) {
+      result[i] = emptyRows.shift().row;
+    } else {
+      result[i] = nonEmptyRows[nonEmptyIdx++].row;
+    }
+  }
+  return result;
 };
 
 export const getSortIcon = (colIndex, sortConfig) => {
@@ -482,13 +504,32 @@ export const importFromFile = (file, callback) => {
   reader.onload = (e) => {
     try {
       const importedData = JSON.parse(e.target.result);
-      if (importedData.data && Array.isArray(importedData.data)) {
+      console.log('Imported data:', importedData);
+      console.log('Type of importedData:', typeof importedData);
+      if (Array.isArray(importedData)) {
+        if (importedData.length > 0) {
+          console.log('First element type:', typeof importedData[0], importedData[0]);
+        }
+        if (importedData.length > 0 && typeof importedData[0] === 'object' && !Array.isArray(importedData[0])) {
+          const headers = Object.keys(importedData[0]);
+          const rows = importedData.map(obj => headers.map(h => obj[h] ?? ""));
+          callback([headers, ...rows]);
+        } else {
+          callback(importedData);
+        }
+      } else if (importedData && typeof importedData === 'object') {
+        // Single object: treat as one row
+        const headers = Object.keys(importedData);
+        const row = headers.map(h => importedData[h] ?? "");
+        callback([headers, row]);
+      } else if (importedData.data && Array.isArray(importedData.data)) {
         callback(importedData.data);
       } else {
         throw new Error("Invalid file format");
       }
     } catch (error) {
-      alert("Error importing file. Please make sure it's a valid JSON file.");
+      alert("Error importing file. Please make sure it's a valid JSON file with the correct format.");
+      console.error('Import error:', error);
     }
   };
   reader.readAsText(file);
@@ -661,4 +702,46 @@ export const testClearCellFunction = (data, focusedCell) => {
   console.log("Test result:", result);
   console.log("==========================");
   return result;
+};
+
+export const exportToCSV = (data, fileName) => {
+  const rows = data.map(row => row.cells);
+  const csv = rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${fileName}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+export const exportToXLS = (data, fileName) => {
+  const rows = data.map(row => row.cells);
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+  const wbout = XLSX.write(wb, { bookType: 'xls', type: 'array' });
+  const blob = new Blob([wbout], { type: 'application/vnd.ms-excel' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${fileName}.xls`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+export const exportToXLSX = (data, fileName) => {
+  const rows = data.map(row => row.cells);
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${fileName}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
 };
