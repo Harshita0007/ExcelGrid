@@ -4,3 +4,8 @@ body {
   margin: 0;
   padding: 0;
 }
+th[style][position="sticky"] {
+  background: #f1f1f1 !important;
+  background-color: #f1f1f1 !important;
+  background-clip: padding-box !important;
+}
